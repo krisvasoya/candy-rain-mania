@@ -30,6 +30,22 @@ function updateCamera() {
 }
 updateCamera();
 
+function shakeCamera(intensity = 0.3, duration = 0.4) {
+    const originalX = 0;
+    const originalY = 0;
+    gsap.to(cam.position, {
+        x: `+=${intensity}`,
+        y: `+=${intensity}`,
+        duration: 0.05,
+        repeat: Math.floor(duration / 0.05),
+        yoyo: true,
+        onComplete: () => {
+            cam.position.x = originalX;
+            cam.position.y = originalY;
+        }
+    });
+}
+
 const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambLight);
 const dirLight = new THREE.DirectionalLight(0xfff0ff, 1.2);
@@ -209,6 +225,20 @@ function spawnItem(){
     const types=['shield','2x','slow','magnet'];
     const t=types[Math.floor(Math.random()*types.length)];
     const colors={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc,magnet:0xff00ff};
+    
+    // Rare Golden Candy chance (2%)
+    const goldenChance = Math.random() < 0.02;
+    if (goldenChance) {
+        const gGold = new THREE.SphereGeometry(0.6, 24, 24);
+        const mGold = new THREE.MeshStandardMaterial({color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 2, metalness: 1, roughness: 0});
+        const mesh = new THREE.Mesh(gGold, mGold);
+        mesh.position.set((Math.random()-.5)*zone*2,10,0);
+        scene.add(mesh);
+        const gLight = new THREE.PointLight(0xffd700, 2, 6);
+        mesh.add(gLight);
+        items.push({mesh, type: 'golden', pts: 100, color: 0xffd700, vy: 0.8, rotSpeed: {x:0.05, y:0.05, z:0.05}});
+        return;
+    }
     const group=new THREE.Group();
 
     if(t==='shield'){
@@ -422,7 +452,7 @@ function animate(){
         } else {
           lives--;updateHearts();combo=0;multiplier=1;showCombo();
           spawnPopup(it.mesh.position,'💥 BOOM!',0xff4757);
-          gsap.to(cam.position,{x:.4,duration:.06,yoyo:true,repeat:5,onComplete:()=>cam.position.x=0});
+          shakeCamera(0.6, 0.5); // Large shake for bomb
           gsap.to(basketGroup.rotation,{z:.3,duration:.08,yoyo:true,repeat:3});
           if(lives<=0){scene.remove(it.mesh);gameOver();return false;}
         }
@@ -435,7 +465,28 @@ function animate(){
         const pcols={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc,magnet:0xff00ff};
         const plbls={shield:'✨ SHIELD!','2x':'⚡ 2X POINTS!',slow:'❄️ SLOW-MO!',magnet:'🧲 MAGNET!'};
         spawnPopup(it.mesh.position,plbls[it.ptype],pcols[it.ptype]);
+        shakeCamera(0.2, 0.3); // Small shake for powerup
         gsap.to(basketGroup.scale,{x:1.12,y:1.12,z:1.12,duration:.14,yoyo:true,repeat:1});
+      } else if (it.type === 'golden') {
+        score += it.pts;
+        spawnPopup(it.mesh.position, '✨ GOLDEN +100!', 0xffd700);
+        shakeCamera(0.8, 0.6); // Massive shake for golden
+        scoreVal.textContent = score;
+        
+        // Clear all bombs
+        items.forEach(otherIt => {
+            if (otherIt.type === 'bomb') {
+                spawnParticles(otherIt.mesh.position, 0xffffff, 5);
+                otherIt.shouldRemove = true;
+            }
+        });
+        items = items.filter(otherIt => {
+            if (otherIt.shouldRemove) {
+                scene.remove(otherIt.mesh);
+                return false;
+            }
+            return true;
+        });
       } else {
         const pts=it.pts*multiplier;score+=pts;combo++;
         if(combo>maxCombo)maxCombo=combo;
@@ -443,6 +494,7 @@ function animate(){
         scoreVal.textContent=score;showCombo();
         const label=(multiplier>1?'×'+multiplier+' ':'')+'+'+(pts);
         spawnPopup(it.mesh.position,label,it.color);
+        shakeCamera(0.1, 0.2); // Tiny shake for candy
         gsap.from(basketGroup.scale,{x:1.08,y:1.08,z:1.08,duration:.14,ease:'power2.out'});
       }
       scene.remove(it.mesh);return false;

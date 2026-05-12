@@ -11,7 +11,24 @@ const W = window.innerWidth, H = window.innerHeight;
 renderer.setSize(W, H);
 const aspect = W/H;
 const cam = new THREE.PerspectiveCamera(60, aspect, 0.1, 100);
-cam.position.set(0, 0, 18);
+
+function updateCamera() {
+    const currentW = window.innerWidth;
+    const currentH = window.innerHeight;
+    const currentAspect = currentW / currentH;
+    cam.aspect = currentAspect;
+    
+    // Adjust Z based on aspect ratio to keep the game zone visible
+    // 11.5 is the half-width of the spawn zone. We want to see at least that much.
+    // In portrait, we need the camera further back.
+    if (currentAspect < 1) {
+        cam.position.z = Math.max(18, 12 / (currentAspect * Math.tan(cam.fov * Math.PI / 360)));
+    } else {
+        cam.position.z = 18;
+    }
+    cam.updateProjectionMatrix();
+}
+updateCamera();
 
 const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambLight);
@@ -111,7 +128,7 @@ function spawnPopup(pos, text, color){
   div.textContent = text;
   document.body.appendChild(div);
   const vec = pos.clone().project(cam);
-  const sx = (vec.x+1)/2*W, sy = (-vec.y+1)/2*H;
+  const sx = (vec.x+1)/2*window.innerWidth, sy = (-vec.y+1)/2*window.innerHeight;
   div.style.left = sx+'px'; div.style.top = sy+'px';
   div.style.transform = 'translate(-50%,-50%) scale(0)';
   gsap.to(div,{opacity:1,y:-40,duration:.8,ease:'power2.out'});
@@ -279,12 +296,12 @@ bMat.emissive=new THREE.Color(0xff6b9d);
 
 // Controls
 window.addEventListener('mousemove',e=>{
-  const nx=((e.clientX/W)-.5)*22;
+  const nx=((e.clientX/window.innerWidth)-.5)*22;
   targetX=Math.max(-10.5,Math.min(10.5,nx));
 });
 window.addEventListener('touchmove',e=>{
   e.preventDefault();
-  const nx=((e.touches[0].clientX/W)-.5)*22;
+  const nx=((e.touches[0].clientX/window.innerWidth)-.5)*22;
   targetX=Math.max(-10.5,Math.min(10.5,nx));
 },{passive:false});
 let keysDown={};
@@ -301,7 +318,8 @@ document.getElementById('menu-btn').addEventListener('click',()=>{
 });
 window.addEventListener('resize',()=>{
   const W2=window.innerWidth,H2=window.innerHeight;
-  renderer.setSize(W2,H2);cam.aspect=W2/H2;cam.updateProjectionMatrix();
+  renderer.setSize(W2,H2);
+  updateCamera();
 });
 
 const clock = new THREE.Clock();

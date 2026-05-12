@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Candy Rain Mania</title>
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="c"></canvas>
+
+    <div id="ui">
+        <div id="score-box">
+            <div id="score-label">SCORE</div>
+            <div id="score-val">0</div>
+            <div id="best-val">Best: 0</div>
+        </div>
+        <div id="lives-box">
+            <span class="heart" id="h1">❤️</span>
+            <span class="heart" id="h2">❤️</span>
+            <span class="heart" id="h3">❤️</span>
+        </div>
+        <div id="combo-box">
+            <span id="combo-text"></span>
+            <span id="mult-text"></span>
+        </div>
+        <div id="powerup-bar">
+            <div id="powerup-label"></div>
+            <div id="powerup-track"><div id="powerup-fill"></div></div>
+        </div>
+        <div id="level-badge">Level 1</div>
+    </div>
+
+    <div id="overlay">
+        <div id="panel">
+            <div id="start-panel">
+                <h1>🍬 Candy Rain</h1>
+                <div class="sub">Catch candies • Build combos • Dodge bombs</div>
+                <div class="candy-row">
+                    <div class="ci" style="background:#ff4757;">●<span>+10</span></div>
+                    <div class="ci" style="background:#2ed573;">■<span>+15</span></div>
+                    <div class="ci" style="background:#5352ed;">▲<span>+20</span></div>
+                    <div class="ci" style="background:#ff6348;">◆<span>+25</span></div>
+                    <div class="ci" style="background:#ffc312;">★<span>+30</span></div>
+                </div>
+                <div class="pw-row">
+                    <div class="pw"><div class="pw-icon" style="background:#00cec9;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);border-radius:0;">🛡️</div>Shield</div>
+                    <div class="pw"><div class="pw-icon" style="background:linear-gradient(135deg,#ffd700,#ff9900);border-radius:4px;font-size:18px;">⭐</div>2x Points</div>
+                    <div class="pw"><div class="pw-icon" style="background:linear-gradient(135deg,#c084fc,#7c3aed);border-radius:50%;">❄️</div>Slow-Mo</div>
+                </div>
+                <button id="play-btn">PLAY NOW!</button>
+                <div id="hi-overlay"></div>
+            </div>
+            <div id="gameover-panel">
+                <h2>GAME OVER!</h2>
+                <div class="go-score" id="go-score">0</div>
+                <div class="go-label">YOUR SCORE</div>
+                <div id="new-best">🏆 NEW HIGH SCORE!</div>
+                <div class="go-stat" id="go-best"></div>
+                <div class="go-stat" id="go-combo"></div>
+                <div class="go-stat" id="go-level"></div>
+                <br>
+                <button id="replay-btn">Play Again</button><br>
+                <button id="menu-btn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Logic -->
+    <script src="game.js"></script>
+</body>
+</html>

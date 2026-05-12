@@ -139,7 +139,7 @@ function spawnPopup(pos, text, color){
 // Game state
 let state='menu', score=0, highScore=0, lives=3, combo=0, maxCombo=0, multiplier=1;
 let frameN=0, speed=1.0, spawnRate=90, powerupTimer=0, currentLevel=1;
-let shieldActive=false, slowActive=false, doubleActive=false;
+let shieldActive=false, slowActive=false, doubleActive=false, magnetActive=false, feverMode=false;
 let items=[], basketX=0, targetX=0, comboTween=null;
 
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -166,24 +166,36 @@ function updateHearts(){
 }
 
 function showCombo(){
-  if(combo<2){gsap.to(comboText,{opacity:0,duration:.2});gsap.to(multText,{opacity:0,duration:.2});return;}
+  if(combo<2){
+    gsap.to(comboText,{opacity:0,duration:.2});
+    gsap.to(multText,{opacity:0,duration:.2});
+    feverMode = false;
+    return;
+  }
+  
+  if (combo >= 10 && !feverMode) {
+    feverMode = true;
+    spawnPopup(basketGroup.position, '🔥 FEVER MODE!', 0xff9900);
+    gsap.to(pinkLight, {intensity: 4, duration: 0.3, yoyo: true, repeat: 1});
+  }
+
   const colors=['','','#2ed573','#5352ed','#ff6348','#ffc312','#ff4757'];
-  const c=colors[Math.min(combo,6)]||'#ff4757';
-  comboText.textContent=combo+'x COMBO!';
+  const c=feverMode ? '#ff00ff' : (colors[Math.min(combo,6)]||'#ff4757');
+  comboText.textContent=(feverMode ? '🔥 ' : '') + combo+'x COMBO!';
   comboText.style.color=c;
   comboText.style.textShadow=`0 0 18px ${c}`;
-  multText.textContent='×'+multiplier+' POINTS';
+  multText.textContent='×'+multiplier+' POINTS' + (feverMode ? ' + FEVER!' : '');
   if(comboTween) comboTween.kill();
   gsap.to(comboText,{opacity:1,duration:.15});
   gsap.to(multText,{opacity:1,duration:.15});
-  gsap.to(document.getElementById('combo-box'),{scale:1.18,duration:.12,yoyo:true,repeat:1,ease:'power2.out'});
+  gsap.to(document.getElementById('combo-box'),{scale:feverMode?1.4:1.18,duration:.12,yoyo:true,repeat:1,ease:'power2.out'});
 }
 
 function updatePowerupBar(){
   if(powerupTimer<=0){gsap.to(powerupBar,{opacity:0,duration:.3});return;}
   gsap.to(powerupBar,{opacity:1,duration:.2});
-  const col=shieldActive?'#00cec9':doubleActive?'#ffd700':'#c084fc';
-  const lbl=shieldActive?'🛡️ SHIELD':doubleActive?'⭐ 2X POINTS':'❄️ SLOW-MO';
+  const col=shieldActive?'#00cec9':doubleActive?'#ffd700':slowActive?'#c084fc':'#ff00ff';
+  const lbl=shieldActive?'🛡️ SHIELD':doubleActive?'⭐ 2X POINTS':slowActive?'❄️ SLOW-MO':'🧲 MAGNET';
   powerupLabel.textContent=lbl;
   powerupLabel.style.color=col;
   powerupFill.style.background=col;
@@ -194,9 +206,9 @@ function spawnItem(){
   const zone=11.5;
   const r=Math.random();
   if(r<0.05){
-    const types=['shield','2x','slow'];
-    const t=types[Math.floor(Math.random()*3)];
-    const colors={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc};
+    const types=['shield','2x','slow','magnet'];
+    const t=types[Math.floor(Math.random()*types.length)];
+    const colors={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc,magnet:0xff00ff};
     const group=new THREE.Group();
 
     if(t==='shield'){
@@ -219,7 +231,7 @@ function spawnItem(){
       group.add(o2);
       const core=new THREE.Mesh(new THREE.SphereGeometry(.22,10,10),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffd700,emissiveIntensity:1.5}));
       group.add(core);
-    } else {
+    } else if(t==='slow'){
       // Purple icosahedron (crystal/ice) + orbiting ring for slow-mo
       const icoMat=new THREE.MeshStandardMaterial({color:0xc084fc,emissive:0x7c3aed,emissiveIntensity:.7,transparent:true,opacity:.9,metalness:.2,roughness:.1,wireframe:false});
       const ico=new THREE.Mesh(new THREE.IcosahedronGeometry(.58,0),icoMat);
@@ -230,6 +242,20 @@ function spawnItem(){
       const ring=new THREE.Mesh(new THREE.TorusGeometry(.8,.06,8,32),new THREE.MeshStandardMaterial({color:0xe9d5ff,emissive:0xc084fc,emissiveIntensity:.8}));
       ring.rotation.x=Math.PI/3;
       group.add(ring);
+    } else if(t==='magnet') {
+      // Horseshoe Magnet Shape (simplified with two curved cylinders)
+      const matMag=new THREE.MeshStandardMaterial({color:0xff00ff,emissive:0xff00ff,emissiveIntensity:.6,metalness:.7,roughness:.2});
+      const m1=new THREE.Mesh(new THREE.TorusGeometry(.45,.15,12,12,Math.PI),matMag);
+      m1.rotation.z = Math.PI;
+      group.add(m1);
+      const left=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.5),matMag);
+      left.position.set(-.45,-.25,0);
+      group.add(left);
+      const right=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.5),matMag);
+      right.position.set(.45,-.25,0);
+      group.add(right);
+      const core=new THREE.Mesh(new THREE.SphereGeometry(.2,8,8),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xff00ff,emissiveIntensity:1.2}));
+      group.add(core);
     }
 
     const light=new THREE.PointLight(colors[t],1.2,4);
@@ -265,7 +291,7 @@ function resetGame(){
   items.forEach(it=>scene.remove(it.mesh));
   items=[];score=0;lives=3;combo=0;maxCombo=0;multiplier=1;
   frameN=0;speed=1.0;spawnRate=90;powerupTimer=0;currentLevel=1;
-  shieldActive=slowActive=doubleActive=false;
+  shieldActive=slowActive=doubleActive=magnetActive=feverMode=false;
   basketX=0;targetX=0;basketGroup.position.x=0;
   scoreVal.textContent='0';bestVal.textContent='Best: '+highScore;
   updateHearts();gsap.to(comboText,{opacity:0});gsap.to(multText,{opacity:0});
@@ -376,6 +402,11 @@ function animate(){
       else it.mesh.rotation.y+=it.rotSpeed;
     }
 
+    // Magnet effect
+    if(magnetActive && it.type === 'candy') {
+       it.mesh.position.x = lerp(it.mesh.position.x, basketX, 0.08);
+    }
+
     // Collision
     const bx=basketGroup.position.x, by=basketGroup.position.y;
     const dx=Math.abs(it.mesh.position.x-bx), dy=Math.abs(it.mesh.position.y-by);
@@ -399,9 +430,10 @@ function animate(){
         powerupTimer=300;
         if(it.ptype==='shield')shieldActive=true;
         else if(it.ptype==='2x'){doubleActive=true;multiplier=Math.max(multiplier,2);}
-        else slowActive=true;
-        const pcols={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc};
-        const plbls={shield:'✨ SHIELD!','2x':'⚡ 2X POINTS!',slow:'❄️ SLOW-MO!'};
+        else if(it.ptype==='slow')slowActive=true;
+        else magnetActive=true;
+        const pcols={shield:0x00cec9,'2x':0xffd700,slow:0xc084fc,magnet:0xff00ff};
+        const plbls={shield:'✨ SHIELD!','2x':'⚡ 2X POINTS!',slow:'❄️ SLOW-MO!',magnet:'🧲 MAGNET!'};
         spawnPopup(it.mesh.position,plbls[it.ptype],pcols[it.ptype]);
         gsap.to(basketGroup.scale,{x:1.12,y:1.12,z:1.12,duration:.14,yoyo:true,repeat:1});
       } else {
@@ -425,7 +457,7 @@ function animate(){
   });
 
   // Powerup timer
-  if(powerupTimer>0){powerupTimer--;updatePowerupBar();if(powerupTimer<=0){shieldActive=slowActive=doubleActive=false;updatePowerupBar();}}
+  if(powerupTimer>0){powerupTimer--;updatePowerupBar();if(powerupTimer<=0){shieldActive=slowActive=doubleActive=magnetActive=false;updatePowerupBar();}}
 
   renderer.render(scene,cam);
 }

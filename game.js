@@ -157,6 +157,7 @@ let state='menu', score=0, highScore=0, lives=3, combo=0, maxCombo=0, multiplier
 let frameN=0, speed=1.0, spawnRate=90, powerupTimer=0, currentLevel=1;
 let shieldActive=false, slowActive=false, doubleActive=false, magnetActive=false, feverMode=false;
 let items=[], basketX=0, targetX=0, comboTween=null;
+let windForce=0, windActive=false, nextWindTime=1500; // frames
 
 function lerp(a,b,t){return a+(b-a)*t;}
 
@@ -237,6 +238,24 @@ function spawnItem(){
         const gLight = new THREE.PointLight(0xffd700, 2, 6);
         mesh.add(gLight);
         items.push({mesh, type: 'golden', pts: 100, color: 0xffd700, vy: 0.8, rotSpeed: {x:0.05, y:0.05, z:0.05}});
+        return;
+    }
+
+    // Mystery Present chance (3%)
+    if (Math.random() < 0.03) {
+        const gBox = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const mBox = new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.2});
+        const mesh = new THREE.Mesh(gBox, mBox);
+        mesh.position.set((Math.random()-.5)*zone*2,10,0);
+        scene.add(mesh);
+        
+        // Ribbon
+        const gRib = new THREE.BoxGeometry(0.85, 0.2, 0.85);
+        const mRib = new THREE.MeshStandardMaterial({color: 0xff4757});
+        const rib = new THREE.Mesh(gRib, mRib);
+        mesh.add(rib);
+        
+        items.push({mesh, type: 'mystery', color: 0xffffff, vy: 0.6, rotSpeed: {x:0.03, y:0.04, z:0.02}});
         return;
     }
     const group=new THREE.Group();
@@ -322,6 +341,7 @@ function resetGame(){
   items=[];score=0;lives=3;combo=0;maxCombo=0;multiplier=1;
   frameN=0;speed=1.0;spawnRate=90;powerupTimer=0;currentLevel=1;
   shieldActive=slowActive=doubleActive=magnetActive=feverMode=false;
+  windForce=0; windActive=false; nextWindTime=1500;
   basketX=0;targetX=0;basketGroup.position.x=0;
   scoreVal.textContent='0';bestVal.textContent='Best: '+highScore;
   updateHearts();gsap.to(comboText,{opacity:0});gsap.to(multText,{opacity:0});
@@ -420,11 +440,45 @@ function animate(){
   // Spawn
   if(frameN%spawnRate===0){ spawnItem(); }
 
+  // Rainbow Background update
+  const hue = (frameN * 0.2 + score * 2) % 360;
+  const mainCol = new THREE.Color(`hsl(${hue}, 60%, 40%)`);
+  const softCol = new THREE.Color(`hsl(${(hue + 60) % 360}, 50%, 60%)`);
+  scene.fog.color.copy(mainCol);
+  pinkLight.color.copy(mainCol);
+  purpleLight.color.copy(softCol);
+  starMat.color.copy(softCol);
+
+  // Wind Event logic
+  if (!windActive && frameN > nextWindTime) {
+      windActive = true;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      gsap.to(this, {
+          windForce: 0.08 * dir,
+          duration: 3,
+          onStart: () => spawnPopup(new THREE.Vector3(0, 0, 0), dir > 0 ? '🌪️ WIND BLOWING RIGHT!' : '🌪️ WIND BLOWING LEFT!', 0x00cec9)
+      });
+      setTimeout(() => {
+          gsap.to(this, {
+              windForce: 0,
+              duration: 3,
+              onComplete: () => {
+                  windActive = false;
+                  nextWindTime = frameN + 1500 + Math.random() * 1000;
+              }
+          });
+      }, 7000);
+  }
+
   // Update items
   const sv=(slowActive)?.42:1;
   items=items.filter(it=>{
     it.mesh.position.y-=it.vy*sv*.05;
     if(it.vx)it.mesh.position.x+=it.vx*sv;
+    
+    // Apply wind
+    it.mesh.position.x += windForce * sv;
+
     if(it.mesh.position.x>11.5){it.mesh.position.x=11.5;it.vx=-Math.abs(it.vx);}
     if(it.mesh.position.x<-11.5){it.mesh.position.x=-11.5;it.vx=Math.abs(it.vx);}
     if(it.rotSpeed){
@@ -487,6 +541,33 @@ function animate(){
             }
             return true;
         });
+      } else if (it.type === 'mystery') {
+        shakeCamera(0.4, 0.4);
+        const r = Math.random();
+        if (r < 0.4) { // Random Powerup
+            const ptypes = ['shield', '2x', 'slow', 'magnet'];
+            const pt = ptypes[Math.floor(Math.random() * ptypes.length)];
+            powerupTimer = 300;
+            if (pt === 'shield') shieldActive = true;
+            else if (pt === '2x') { doubleActive = true; multiplier = Math.max(multiplier, 2); }
+            else if (pt === 'slow') slowActive = true;
+            else magnetActive = true;
+            spawnPopup(it.mesh.position, '🎁 MYSTERY: POWERUP!', 0x00cec9);
+        } else if (r < 0.8) { // Big Candy
+            score += 50;
+            scoreVal.textContent = score;
+            spawnPopup(it.mesh.position, '🎁 MYSTERY: +50 PTS!', 0xffd700);
+        } else { // Extra Life
+            if (lives < 3) {
+                lives++;
+                updateHearts();
+                spawnPopup(it.mesh.position, '🎁 MYSTERY: EXTRA LIFE!', 0xff4757);
+            } else {
+                score += 100;
+                scoreVal.textContent = score;
+                spawnPopup(it.mesh.position, '🎁 MYSTERY: +100 PTS!', 0xffd700);
+            }
+        }
       } else {
         const pts=it.pts*multiplier;score+=pts;combo++;
         if(combo>maxCombo)maxCombo=combo;
